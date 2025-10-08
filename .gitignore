@@ -1,0 +1,44 @@
+# Environment variables
+# Never commit your .env file! It contains secrets.
+.env
+.env.*
+
+# Python virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# Django static and media files
+# These are generated or uploaded, not part of the source code.
+staticfiles/
+media/
+
+# Database
+# Keep local development databases out of version control.
+db.sqlite3
+db.sqlite3-journal
+
+# Python bytecode and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE and editor configuration files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS specific files
+.DS_Store
+
+# Log files
+*.log
+logs/
+
+# Python packaging artifacts
+build/
+dist/
+*.egg-info/
