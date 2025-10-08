@@ -1,7 +1,7 @@
 # Environment variables
 # Never commit your .env file! It contains secrets.
 .env
-.env.*
+
 
 # Python virtual environment
 venv/
