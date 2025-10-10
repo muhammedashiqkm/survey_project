@@ -2,8 +2,27 @@
 from django import forms
 from django.forms.models import BaseInlineFormSet
 from django.core.exceptions import ValidationError
-from .models import StudentResponse, StudentSectionResult
+from .models import StudentResponse, StudentSectionResult, Section
 
+
+
+class SectionAdminForm(forms.ModelForm):
+    class Meta:
+        model = Section
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        category = cleaned_data.get("category")
+        template = cleaned_data.get("subjective_option_template")
+
+        if category and template:
+            # If the category has marks, it cannot have a subjective template.
+            if category.has_correct_answers:
+                raise ValidationError(
+                    "Error: A Subjective Option Template cannot be assigned to a section that belongs to a category with marks."
+                )
+        return cleaned_data
 class StudentResponseAdminForm(forms.ModelForm):
     class Meta:
         model = StudentResponse

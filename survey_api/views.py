@@ -12,7 +12,7 @@ from .models import (
 )
 from .serializers import SurveySerializer, StudentRegistrationSerializer, SubmissionSerializer
 from rest_framework.exceptions import ValidationError
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Count # <-- IMPORT COUNT
 from django.utils import timezone
 
 # Get a logger instance
@@ -34,10 +34,6 @@ def register_student(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_survey(request, college_name):
-    """
-    Prefetch the full structure in as few queries as possible:
-      College -> categories -> sections -> questions -> options
-    """
     college = get_object_or_404(
         College.objects.prefetch_related(
             Prefetch('categories__sections__questions__options')
@@ -51,44 +47,33 @@ def get_survey(request, college_name):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def submit_responses(request, college_name, student_id):
-    """
-    Batch-load questions and options, then update or create StudentResponse rows
-    and update section results.
-    """
     submission_serializer = SubmissionSerializer(data=request.data)
     try:
         submission_serializer.is_valid(raise_exception=True)
         responses_data = submission_serializer.validated_data['responses']
-
         college = get_object_or_404(College, name__iexact=college_name)
         student = get_object_or_404(Student, student_id=student_id, college=college)
-
         question_ids = {r['question_id'] for r in responses_data}
         option_ids = {r['selected_option_id'] for r in responses_data}
-
         questions_qs = Question.objects.filter(id__in=question_ids, section__category__college=college)\
             .select_related('section__category')
         options_qs = Option.objects.filter(id__in=option_ids).select_related('question__section__category')
-
         questions_map = {q.id: q for q in questions_qs}
         options_map = {o.id: o for o in options_qs}
-
         missing_questions = question_ids - set(questions_map.keys())
         missing_options = option_ids - set(options_map.keys())
-
         if missing_questions or missing_options:
             return Response({
                 "error": "Invalid question_id or selected_option_id referenced",
                 "missing_questions": list(missing_questions),
                 "missing_options": list(missing_options)
             }, status=status.HTTP_400_BAD_REQUEST)
-
+        
         existing_responses = StudentResponse.objects.filter(
             student=student,
             question_id__in=question_ids
         )
         existing_responses_map = {resp.question_id: resp for resp in existing_responses}
-
         responses_to_create = []
         responses_to_update = []
         section_marks = defaultdict(int)
@@ -98,10 +83,8 @@ def submit_responses(request, college_name, student_id):
             oid = r_data['selected_option_id']
             question = questions_map[qid]
             option = options_map[oid]
-
             if option.question_id != qid:
                 return Response({"error": f"Option {oid} does not belong to question {qid}"}, status=status.HTTP_400_BAD_REQUEST)
-
             if qid in existing_responses_map:
                 response_obj = existing_responses_map[qid]
                 if response_obj.selected_option_id != oid:
@@ -112,25 +95,20 @@ def submit_responses(request, college_name, student_id):
                 responses_to_create.append(
                     StudentResponse(student=student, question=question, selected_option=option)
                 )
-            
             if question.section.category.has_correct_answers and option.is_correct:
                 section_marks[question.section_id] += 1
         
         with transaction.atomic():
-
             if responses_to_update:
                 StudentResponse.objects.bulk_update(responses_to_update, ['selected_option_id', 'submitted_at'])
-           
             if responses_to_create:
                 StudentResponse.objects.bulk_create(responses_to_create)
-
             for section_id, total_marks in section_marks.items():
                 StudentSectionResult.objects.update_or_create(
                     student=student,
                     section_id=section_id,
                     defaults={'total_marks': total_marks}
                 )
-
 
         return Response({"message": "Responses submitted successfully"}, status=status.HTTP_201_CREATED)
 
@@ -140,37 +118,31 @@ def submit_responses(request, college_name, student_id):
         return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
     except IntegrityError:
         logger.error("IntegrityError during response submission, potential race condition.", exc_info=True)
-        return Response(
-            {"error": "A database conflict occurred. Please try again."},
-            status=status.HTTP_409_CONFLICT
-        )
+        return Response({"error": "A database conflict occurred. Please try again."}, status=status.HTTP_409_CONFLICT)
     except Exception as e:
         logger.error(f"Unexpected error in submit_responses: {e}", exc_info=True)
-        return Response(
-            {"error": "An internal server error occurred."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({"error": "An internal server error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_results(request, college_name, student_id):
-    """
-    Returns objective marks (from StudentSectionResult) and subjective responses
-    grouped by category/section. Use select_related / prefetch to avoid N+1.
-    """
     college = get_object_or_404(College, name__iexact=college_name)
     student = get_object_or_404(Student, student_id=student_id, college=college)
-
     results_by_category = defaultdict(lambda: {"objective": [], "subjective": []})
 
-    marks_results = StudentSectionResult.objects.filter(student=student).select_related('section__category')
+    marks_results = StudentSectionResult.objects.filter(student=student)\
+        .select_related('section__category')\
+        .annotate(total_section_questions=Count('section__questions'))
+
     for result in marks_results:
         category_name = result.section.category.name
+        # Update the response structure with the new fields
         results_by_category[category_name]["objective"].append({
             "section": result.section.name,
             "result_type": "marks",
-            "score": result.total_marks
+            "total_mark": result.total_section_questions,
+            "student_score": result.total_marks
         })
 
     subjective_responses = StudentResponse.objects.filter(
