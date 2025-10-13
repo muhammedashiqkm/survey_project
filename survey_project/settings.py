@@ -1,5 +1,3 @@
-# settings.py
-
 import os
 from pathlib import Path
 import dotenv
@@ -96,7 +94,6 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-# ADD THIS LINE to tell Django where your project-level static files are
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 

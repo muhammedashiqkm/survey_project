@@ -1,4 +1,3 @@
-# survey_api/forms.py
 from django import forms
 from django.forms.models import BaseInlineFormSet
 from django.core.exceptions import ValidationError
@@ -65,7 +64,7 @@ class OptionInlineFormSet(BaseInlineFormSet):
 
         question = self.instance
 
-        # The form can't proceed if a section hasn't been selected yet.
+     
         if not hasattr(question, 'section'):
              return
         
@@ -76,11 +75,9 @@ class OptionInlineFormSet(BaseInlineFormSet):
         correct_answers_count = 0
 
         for form in self.forms:
-            # Skip forms that are slated for deletion
             if self.can_delete and self._should_delete_form(form):
                 continue
             
-            # Skip empty extra forms that haven't been touched
             if not form.has_changed():
                 continue
 
@@ -89,7 +86,6 @@ class OptionInlineFormSet(BaseInlineFormSet):
             if form.cleaned_data.get('is_correct', False):
                 correct_answers_count += 1
         
-        # Apply validation rules based on the conditions
         if is_mark_category:
             if total_options_count == 0:
                 raise ValidationError('You must add at least one answer option for a question in a mark category.')

@@ -91,7 +91,6 @@ class Question(models.Model):
             if template:
                 option_qs = template.options.all()
                 if option_qs.exists():
-                    # UPDATED PART: Replaced the local import with apps.get_model
                     Option = apps.get_model('survey_api', 'Option')
                     to_create = [Option(question=self, text=o.text) for o in option_qs]
                     Option.objects.bulk_create(to_create)

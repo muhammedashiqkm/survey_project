@@ -12,7 +12,7 @@ from .models import (
 )
 from .serializers import SurveySerializer, StudentRegistrationSerializer, SubmissionSerializer
 from rest_framework.exceptions import ValidationError
-from django.db.models import Prefetch, Count # <-- IMPORT COUNT
+from django.db.models import Prefetch, Count
 from django.utils import timezone
 
 # Get a logger instance
@@ -137,7 +137,6 @@ def get_student_results(request, college_name, student_id):
 
     for result in marks_results:
         category_name = result.section.category.name
-        # Update the response structure with the new fields
         results_by_category[category_name]["objective"].append({
             "section": result.section.name,
             "result_type": "marks",

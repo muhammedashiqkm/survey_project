@@ -159,7 +159,6 @@ An error is returned if the request data is invalid, question/option IDs don't e
 ```
 
 -----
-
 ### 4\. Get Student Results
 
 This endpoint retrieves the processed results for a student, separated into objective (marks-based) and subjective (text-based) categories.
@@ -177,29 +176,72 @@ The API returns a detailed breakdown of the student's results, grouped by catego
 
 ```json
 {
-    "student_name": "Arjun Kumar",
-    "student_id": "STU-00123",
+    "student_name": "Richard Garcia",
+    "student_id": "S-1-1000",
     "results": [
         {
-            "category": "Aptitude Test",
+            "category": "General Aptitude Test",
             "sections": [
                 {
-                    "section": "Quantitative",
+                    "section": "Quantitative Analysis",
                     "result_type": "marks",
-                    "score": 15
+                    "total_mark": 10,
+                    "student_score": 10
                 }
             ]
         },
         {
-            "category": "Feedback Survey",
+            "category": "Campus Life Feedback",
             "sections": [
                 {
-                    "section": "Campus Facilities",
+                    "section": "Student Satisfaction Survey",
+                    "result_type": "marks",
+                    "total_mark": 10,
+                    "student_score": 13
+                },
+                {
+                    "section": "Student Satisfaction Survey",
                     "result_type": "subjective",
                     "responses": [
                         {
-                            "question": "How would you rate the library services?",
-                            "selected_option": "Excellent"
+                            "question": "How satisfied are you with the hostel amenities?",
+                            "selected_option": "Satisfied"
+                        },
+                        {
+                            "question": "How satisfied are you with the cafeteria food?",
+                            "selected_option": "Satisfied"
+                        },
+                        {
+                            "question": "How satisfied are you with the sports facilities?",
+                            "selected_option": "Satisfied"
+                        },
+                        {
+                            "question": "How satisfied are you with the hostel amenities?",
+                            "selected_option": "Satisfied"
+                        },
+                        {
+                            "question": "How satisfied are you with the cafeteria food?",
+                            "selected_option": "Satisfied"
+                        },
+                        {
+                            "question": "How satisfied are you with the sports facilities?",
+                            "selected_option": "Satisfied"
+                        },
+                        {
+                            "question": "How satisfied are you with the cafeteria food?",
+                            "selected_option": "Satisfied"
+                        },
+                        {
+                            "question": "How satisfied are you with the sports facilities?",
+                            "selected_option": "Satisfied"
+                        },
+                        {
+                            "question": "How satisfied are you with the faculty support?",
+                            "selected_option": "Satisfied"
+                        },
+                        {
+                            "question": "How satisfied are you with the cafeteria food?",
+                            "selected_option": "Satisfied"
                         }
                     ]
                 }
