@@ -1,0 +1,5 @@
+div.selector-available select,
+div.selector-chosen select {
+    background-color: #272c30; 
+    color: #f8f9fa;           
+}
