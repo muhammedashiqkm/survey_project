@@ -16,7 +16,6 @@ class SectionAdminForm(forms.ModelForm):
         template = cleaned_data.get("subjective_option_template")
 
         if category and template:
-            # If the category has marks, it cannot have a subjective template.
             if category.has_correct_answers:
                 raise ValidationError(
                     "Error: A Subjective Option Template cannot be assigned to a section that belongs to a category with marks."
@@ -50,11 +49,6 @@ class StudentSectionResultAdminForm(forms.ModelForm):
         if student and section:
             if student.college != section.category.college:
                 raise ValidationError("Error: The selected student and section belong to different colleges.")
-            
-        if not section.category.has_correct_answers:
-                raise ValidationError(
-                    "Marks cannot be assigned. The selected section belongs to a category that does not have marks (e.g., a subjective survey)."
-                )
         
         return cleaned_data
 
@@ -97,3 +91,5 @@ class OptionInlineFormSet(BaseInlineFormSet):
         elif not is_mark_category and not has_template:
             if total_options_count == 0:
                 raise ValidationError('For subjective questions without a option template, you must add the answer options manually.')
+            if correct_answers_count > 0:
+                raise ValidationError('A correct answer cannot be set for a question in a subjective category.')

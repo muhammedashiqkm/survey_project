@@ -15,7 +15,6 @@ from rest_framework.exceptions import ValidationError
 from django.db.models import Prefetch, Count
 from django.utils import timezone
 
-# Get a logger instance
 logger = logging.getLogger(__name__)
 
 
