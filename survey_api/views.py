@@ -15,7 +15,7 @@ from rest_framework.exceptions import ValidationError
 from django.db.models import Prefetch, Count
 from django.utils import timezone
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('survey_api')
 
 
 @api_view(['POST'])
@@ -25,14 +25,20 @@ def register_student(request):
     try:
         serializer.is_valid(raise_exception=True)
         student = serializer.save()
+
+        logger.info(f"Student {student.id} registered for college {student.college.name}.")
         return Response({"message": "Student registered successfully", "student_id": student.id}, status=status.HTTP_201_CREATED)
     except ValidationError as e:
+
+        logger.warning(f"Student registration failed validation: {e.detail}")
         return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_survey(request, college_name):
+    
+    logger.debug(f"Fetching survey for college: {college_name}")
     college = get_object_or_404(
         College.objects.prefetch_related(
             Prefetch('categories__sections__questions__options')
@@ -52,6 +58,7 @@ def submit_responses(request, college_name, student_id):
         responses_data = submission_serializer.validated_data['responses']
         college = get_object_or_404(College, name__iexact=college_name)
         student = get_object_or_404(Student, student_id=student_id, college=college)
+
         question_ids = {r['question_id'] for r in responses_data}
         option_ids = {r['selected_option_id'] for r in responses_data}
         questions_qs = Question.objects.filter(id__in=question_ids, section__category__college=college)\
@@ -59,6 +66,7 @@ def submit_responses(request, college_name, student_id):
         options_qs = Option.objects.filter(id__in=option_ids).select_related('question__section__category')
         questions_map = {q.id: q for q in questions_qs}
         options_map = {o.id: o for o in options_qs}
+
         missing_questions = question_ids - set(questions_map.keys())
         missing_options = option_ids - set(options_map.keys())
         if missing_questions or missing_options:
@@ -75,7 +83,8 @@ def submit_responses(request, college_name, student_id):
         existing_responses_map = {resp.question_id: resp for resp in existing_responses}
         responses_to_create = []
         responses_to_update = []
-        section_marks = defaultdict(int)
+        
+        objective_sections_touched = set()
 
         for r_data in responses_data:
             qid = r_data['question_id']
@@ -94,21 +103,30 @@ def submit_responses(request, college_name, student_id):
                 responses_to_create.append(
                     StudentResponse(student=student, question=question, selected_option=option)
                 )
-            if question.section.category.has_correct_answers and option.is_correct:
-                section_marks[question.section_id] += 1
+            
+            if question.section.category.has_correct_answers:
+                objective_sections_touched.add(question.section_id)
         
         with transaction.atomic():
             if responses_to_update:
                 StudentResponse.objects.bulk_update(responses_to_update, ['selected_option_id', 'submitted_at'])
             if responses_to_create:
                 StudentResponse.objects.bulk_create(responses_to_create)
-            for section_id, total_marks in section_marks.items():
+            
+            for section_id in objective_sections_touched:
+                total_marks = StudentResponse.objects.filter(
+                    student=student,
+                    question__section_id=section_id,
+                    selected_option__is_correct=True
+                ).count()
+                
                 StudentSectionResult.objects.update_or_create(
                     student=student,
                     section_id=section_id,
                     defaults={'total_marks': total_marks}
                 )
 
+        logger.info(f"Responses submitted for student {student_id}. {len(responses_to_create)} created, {len(responses_to_update)} updated.")
         return Response({"message": "Responses submitted successfully"}, status=status.HTTP_201_CREATED)
 
     except ValidationError as e:
@@ -116,16 +134,18 @@ def submit_responses(request, college_name, student_id):
     except ObjectDoesNotExist as e:
         return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
     except IntegrityError:
-        logger.error("IntegrityError during response submission, potential race condition.", exc_info=True)
+        logger.error(f"IntegrityError during response submission for student {student_id}, potential race condition.", exc_info=True)
         return Response({"error": "A database conflict occurred. Please try again."}, status=status.HTTP_409_CONFLICT)
     except Exception as e:
-        logger.error(f"Unexpected error in submit_responses: {e}", exc_info=True)
+        logger.error(f"Unexpected error in submit_responses for student {student_id}: {e}", exc_info=True)
         return Response({"error": "An internal server error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_results(request, college_name, student_id):
+
+    logger.debug(f"Fetching results for student {student_id} at {college_name}")
     college = get_object_or_404(College, name__iexact=college_name)
     student = get_object_or_404(Student, student_id=student_id, college=college)
     results_by_category = defaultdict(lambda: {"objective": [], "subjective": []})
@@ -175,5 +195,6 @@ def get_student_results(request, college_name, student_id):
             "sections": sections["objective"] + sections["subjective"]
         }
         final_response["results"].append(category_data)
-
+    
+    logger.info(f"Successfully generated results for student {student_id} at {college_name}.")
     return Response(final_response)
