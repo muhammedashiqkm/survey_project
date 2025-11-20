@@ -204,7 +204,22 @@ JAZZMIN_SETTINGS = {
         {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
         {"app": "survey_api"},
     ],
-    "order_with_respect_to": ["survey_api", "auth"],
+    
+    # --- CHANGE HERE: List specific models to force ordering ---
+    "order_with_respect_to": [
+        "survey_api.College",
+        "survey_api.CollegeAdminProfile",
+        "survey_api.Category",
+        "survey_api.Section",
+        "survey_api.Question",
+        "survey_api.Option",
+        "survey_api.SubjectiveOptionTemplate",
+        "survey_api.Student",
+        "survey_api.StudentResponse",
+        "survey_api.StudentSectionResult",
+        "auth",
+    ],
+
     "apps": {
         "auth": {
             "label": "Authentication",
@@ -213,18 +228,9 @@ JAZZMIN_SETTINGS = {
         "survey_api": {
             "label": "Survey Management",
             "icon": "fas fa-poll",
-            "models": [
-                "survey_api.College",
-                "survey_api.Category",
-                "survey_api.Section",
-                "survey_api.Question",
-                "survey_api.SubjectiveOptionTemplate",
-                "survey_api.Student",
-                "survey_api.StudentResponse",
-                "survey_api.StudentSectionResult",
-            ]
         }
     },
+    
     "show_sidebar": True,
     "navigation_expanded": True,
     "default_icon_parents": "fas fa-chevron-circle-right",

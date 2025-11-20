@@ -2,6 +2,10 @@ from django.db import models, transaction
 from django.urls import reverse
 from django.contrib.auth.models import User
 from django.apps import apps
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
+
 
 
 
@@ -78,22 +82,6 @@ class Question(models.Model):
     def __str__(self):
         return self.text[:60]
 
-    def save(self, *args, **kwargs):
-        """
-        If this is a new subjective question and the Section has a template,
-        create Option rows in bulk using that template. Avoid creating options on updates.
-        """
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-
-        if is_new and not self.section.category.has_correct_answers:
-            template = self.section.subjective_option_template
-            if template:
-                option_qs = template.options.all()
-                if option_qs.exists():
-                    Option = apps.get_model('survey_api', 'Option')
-                    to_create = [Option(question=self, text=o.text) for o in option_qs]
-                    Option.objects.bulk_create(to_create)
 
 
 class Option(models.Model):
@@ -103,7 +91,22 @@ class Option(models.Model):
 
     def __str__(self):
         return self.text
-
+    
+@receiver(post_save, sender=Question)
+def create_default_options(sender, instance, created, **kwargs):
+    """
+    Automatically creates options for subjective questions based on the section template.
+    Triggered only when a new Question is created.
+    """
+    if created and not instance.section.category.has_correct_answers:
+        template = instance.section.subjective_option_template
+        if template:
+            option_qs = template.options.all()
+            if option_qs.exists():
+                Option.objects.bulk_create([
+                    Option(question=instance, text=o.text) for o in option_qs
+                ])
+    
 
 class Student(models.Model):
     college = models.ForeignKey(College, on_delete=models.CASCADE, related_name='students', db_index=True)
@@ -130,7 +133,7 @@ class StudentResponse(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='responses', db_index=True)
     question = models.ForeignKey(Question, on_delete=models.CASCADE, db_index=True)
     selected_option = models.ForeignKey(Option, on_delete=models.CASCADE)
-    submitted_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
