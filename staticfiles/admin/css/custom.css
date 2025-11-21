@@ -4,17 +4,11 @@ div.selector-chosen select {
     color: #f8f9fa;           
 }
 
-/* Change Select2 Dropdown Text Color */
-.select2-results__option {
+.select2-container--default .select2-results_option--highlighted.select2-results_option--selectable{
     color: white !important;
 }
 
-/* Change selected option */
-.select2-selection__rendered {
-    color: white !important;
-}
+.select2-container--default .select2-selection--single {
+    background-color: #000000;
 
-/* Change dropdown background if needed */
-.select2-results {
-    background-color: #1e1e1e !important; /* optional */
 }
