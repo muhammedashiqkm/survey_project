@@ -10,7 +10,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch, Count
 from rest_framework.exceptions import ValidationError
 
-# Imports from your project
 from .models import (
     College, Student, Question, Option, Section, 
     StudentResponse, StudentSectionResult
@@ -18,7 +17,7 @@ from .models import (
 from .serializers import (
     SurveySerializer, StudentRegistrationSerializer, SubmissionSerializer
 )
-# IMPORT THE NEW SERVICE
+
 from .services import SurveySubmissionService
 
 logger = logging.getLogger('survey_api')
@@ -108,18 +107,13 @@ def submit_responses(request, college_name, student_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_results(request, college_name, student_id):
-    """
-    Aggregates results for a specific student.
-    Separates Objective (marks) from Subjective (text responses).
-    """
     logger.debug(f"Fetching results for student {student_id} at {college_name}")
     
     college = get_object_or_404(College, name__iexact=college_name)
     student = get_object_or_404(Student, student_id=student_id, college=college)
-    
+
     results_by_category = defaultdict(lambda: {"objective": [], "subjective": []})
 
-    # 1. Fetch Objective Marks
     marks_results = StudentSectionResult.objects.filter(student=student)\
         .select_related('section__category')\
         .annotate(total_section_questions=Count('section__questions'))
@@ -128,49 +122,47 @@ def get_student_results(request, college_name, student_id):
         category_name = result.section.category.name
         results_by_category[category_name]["objective"].append({
             "section": result.section.name,
-            "result_type": "marks",
             "total_mark": result.total_section_questions,
             "student_score": result.total_marks
         })
 
-    # 2. Fetch Subjective Responses
-    # Optimized with select_related to grab all hierarchy levels in one go
+   
     subjective_responses = StudentResponse.objects.filter(
         student=student, 
         question__section__category__has_correct_answers=False
     ).select_related('question__section__category', 'selected_option')
 
-    # Group subjective responses in Python to avoid complex SQL grouping
-    responses_by_section_and_category = defaultdict(list)
+    responses_map = defaultdict(list)
     for response in subjective_responses:
         cat = response.question.section.category.name
         sec = response.question.section.name
-        responses_by_section_and_category[(cat, sec)].append({
+        responses_map[(cat, sec)].append({
             "question": response.question.text,
             "selected_option": response.selected_option.text
         })
 
-    # Transform subjective groupings into final JSON structure
-    for (category_name, section_name), responses in responses_by_section_and_category.items():
+    for (category_name, section_name), response_list in responses_map.items():
         results_by_category[category_name]["subjective"].append({
             "section": section_name,
-            "result_type": "subjective",
-            "responses": responses
+            "responses": response_list
         })
 
-    # Construct Final Response
-    final_response = {
-        "student_name": student.name,
-        "student_id": student.student_id,
-        "results": []
-    }
+    final_output = []
 
-    for category_name, sections in results_by_category.items():
-        category_data = {
-            "category": category_name,
-            "sections": sections["objective"] + sections["subjective"]
-        }
-        final_response["results"].append(category_data)
-    
-    logger.info(f"Successfully generated results for student {student_id} at {college_name}.")
-    return Response(final_response)
+    for category_name, data in results_by_category.items():
+        
+        if data["objective"]:
+            final_output.append({
+                "category": category_name,
+                "result_type": "objective",
+                "sections": data["objective"]
+            })
+
+        if data["subjective"]:
+            final_output.append({
+                "category": category_name,
+                "result_type": "subjective",
+                "sections": data["subjective"]
+            })
+
+    return Response(final_output)
