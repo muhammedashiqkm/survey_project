@@ -71,14 +71,11 @@ def submit_responses(request, college_name, student_id):
     """
     submission_serializer = SubmissionSerializer(data=request.data)
     try:
-        # 1. Validate format
         submission_serializer.is_valid(raise_exception=True)
         responses_data = submission_serializer.validated_data['responses']
 
-        # 2. Initialize Service
         service = SurveySubmissionService(college_name, student_id, responses_data)
         
-        # 3. Execute Logic (Process Submission)
         created_count, updated_count = service.process_submission()
 
         logger.info(f"Responses submitted for student {student_id}. {created_count} created, {updated_count} updated.")
@@ -88,7 +85,6 @@ def submit_responses(request, college_name, student_id):
         return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     
     except ValueError as e:
-        # Catches logical errors from the service (e.g., option not belonging to question)
         logger.warning(f"Validation error during submission for {student_id}: {str(e)}")
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
