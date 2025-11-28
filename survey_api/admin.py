@@ -11,21 +11,19 @@ from .forms import (
 
 admin.site.register(CollegeAdminProfile)
 
-# --- Helper Functions ---
 def is_college_admin(user):
     """Check if user belongs to the College Administrator group."""
     if user.is_superuser:
         return False
     return user.groups.filter(name='College Administrator').exists()
 
-# --- Mixins (New Architecture) ---
 class CollegeScopedAdminMixin:
     """
     A Mixin to handle the boilerplate for College Administrator scoping.
     1. Restricts the QuerySet to the user's college.
     2. Provides a hook for list filters.
     """
-    college_field_path = 'college'  # Default path, override in subclasses
+    college_field_path = 'college'  
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -40,7 +38,6 @@ class CollegeScopedAdminMixin:
                 if self.college_field_path == 'id':
                     return qs.filter(id=user_college.id)
                 
-                # Dynamic filtering for related models
                 return qs.filter(**{self.college_field_path: user_college})
             except CollegeAdminProfile.DoesNotExist:
                 return qs.none()

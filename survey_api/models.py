@@ -9,7 +9,6 @@ from django.utils import timezone
 
 
 
-
 class College(models.Model):
     name = models.CharField(max_length=200, unique=True, db_index=True)
 
@@ -113,7 +112,7 @@ class Student(models.Model):
     student_id = models.CharField(max_length=50, db_index=True)
     name = models.CharField(max_length=100, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['college', 'student_id'], name='unique_college_studentid')
